@@ -55,7 +55,7 @@ class Simulation(object):
 class WellMixed(Simulation):
   #Carries all information for the well-mixed case
   def __init__(self, predRates = np.zeros((TOT_SPECIES, TOT_SPECIES), float), speciesPopulation = [1 for _ in range(TOT_SPECIES)], numStepsPerUpdate = 100):
-    super(Simulation, self).__init__(predRates)
+    super(WellMixed, self).__init__(predRates)
     self.speciesPop = speciesPopulation
     self.totPop = sum(self.speciesPop)
     self.numStepsPerUpdate = numStepsPerUpdate

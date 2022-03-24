@@ -48,7 +48,7 @@ def Quit():
 
 def runSimulation():
   screen.fill(gui.BLACK)
-  simulator = sim.WellMixed(predRates, [5000 for _ in range(TOT_SPECIES)])
+  simulator = sim.WellMixed(predRates, [500000000 for _ in range(TOT_SPECIES)])
   simulationArea = pg.Surface((display_width-20, display_height-20))
   simulationAreaRect = simulationArea.get_rect()
   simulationAreaRect.center = (display_width//2-10, display_height//2 -10)
