@@ -209,7 +209,7 @@ class Button(Clickable):
     RETURN_TRUE = 1
     RETURN_FALSE = 2
     RETURN_NONE = 0
-    def __init__(self, x, y, width, height, action = RETURN_TRUE, inactivecolour = RED, activecolour = ORANGE, text = None, textcolour = BLACK, size = 25, border = None):
+    def __init__(self, x, y, width, height, action = RETURN_TRUE, inactivecolour = RED, activecolour = ORANGE, text = None, textcolour = BLACK, size = 25, borderActiveColour = None, borderInactiveColour = None, image = None):
         """'action' parameter will take either a function object, or a constant value defined in the class attributes of Button.
 if action is a function, then the function should not take any parameters (this class will not pass any parameters)
 when the action function is called, this class will return whatever the action() function returns.
@@ -229,26 +229,49 @@ as defined by the name of the constant."""
         elif isinstance(action, str):
             self.string = True
         self.action = action
+        self.image = None
+        self.borderSize = 2
+        if image != None:
+          r = image.get_rect()
+          if self.wd >= self.ht:
+            scaleWidth = self.wd - 2*self.borderSize
+            scaleHeight = r.height * scaleWidth // r.width
+          else:
+            scaleHeight = self.ht-2*self.borderSize
+            scaleWidth = scaleHeight * r.width // r.height
+          self.image = pg.Surface((scaleWidth, scaleHeight))
+          pg.transform.smoothscale(image, (scaleWidth, scaleHeight), self.image)
+          #self.image.blit(image, r)
+          self.imageRect = self.image.get_rect()
+          self.imageRect.center = (self.x + self.wd//2, self.y + self.ht//2)
         self.inactive = inactivecolour
         self.active = activecolour
-        self.border = border 
-        if text == None:
-            text = action.__name__.upper()
-            if self.string:
-                text = self.action
+        self.borderActiveColour = borderActiveColour 
+        self.borderInactiveColour = borderInactiveColour
+        if text == None or text.isspace():
+            text = '' #action.__name__.upper()
+            #if self.string:
+            #    text = self.action
         self.text = text
         self.textcolour = textcolour
         self.size = size
     def blit(self, surface, update = False, freeze = False):
         cur = pg.mouse.get_pos()
+        buttonActive = False
         if not freeze and (self.x < cur[0] < self.x+self.wd) and (self.y < cur[1] < self.y + self.ht):
             c = self.active
+            buttonActive = True
         else:
             c = self.inactive
         pg.draw.rect(surface, c, (self.x, self.y, self.wd, self.ht))
-        if self.border != None:
-            pg.draw.rect(surface, self.border, (self.x, self.y, self.wd, self.ht), 1)
-        text_to_button(surface, self.text, self.textcolour, self.x, self.y, self.wd, self.ht, self.size)
+        if self.image != None:
+          surface.blit(self.image, self.imageRect)
+        if self.borderInactiveColour != None and not buttonActive:
+            pg.draw.rect(surface, self.borderInactiveColour, (self.x, self.y, self.wd, self.ht), self.borderSize)
+        if self.borderActiveColour != None and buttonActive:
+            pg.draw.rect(surface, self.borderActiveColour, (self.x, self.y, self.wd, self.ht), self.borderSize)
+        if self.text != '':
+          text_to_button(surface, self.text, self.textcolour, self.x, self.y, self.wd, self.ht, self.size)
         if update:
             pg.display.update()
     def get_click(self, delay = True):
@@ -260,108 +283,6 @@ as defined by the name of the constant."""
                 return self.action
             return self.action()
 
-#--------------------------------------------------------------------------------------
-
-class Dragable(object):
-    '''Object that can be dragged by the mouse.
-Mouse has to be held while shifting.
-'''
-    def __init__(self, x, y, width, height, colour = BLACK, restrict = None, xinterval = (-50, 100000),
-                 yinterval = (-50, 100000), steps = 1):
-        ''''restrict' restricts the movement of the object along a particular axis
-restrict can only be 'y', 'x' to lock the y axis and x axis respectively
-anything else does not lock any axis.
-xinterval/yinterval is a 2-tuple of integers that gives a lower and upper bound
-if they are None, then no limits shall be taken.
-steps gives the size of the jump that the object will make'''
-        self.x = x
-        self.y = y
-        self.movex = not(restrict == 'x')
-        self.movey = not(restrict == 'y')
-        self.wd = width
-        self.ht = height
-        self.drag = False
-        self.colour = colour
-        self.dx = 0
-        self.dy = 0
-        self.xlim = xinterval
-        if not self.movex:
-            self.xlim = (self.x, self.x)
-        self.ylim = yinterval 
-        if not self.movey:
-            self.ylim = (self.y, self.y)
-        self.steps = steps
-        self.active = tuple(min(25+c, 200) for c in colour)
-        self.dragcolour = tuple(min(int(1.5*c), 240) for c in colour)
-#
-#        if self.steps == 1:
-#            self.xbuckets = None
-#            self.ybuckets = None
-#            self.xind = None
-#            self.yind = None
-#        else:
-#            self.xbuckets = tuple(range(self.xlim[0], self.xlim[1]+1, self.steps))
-#            self.ybuckets = tuple(range(self.ylim[0], self.ylim[1]+1, self.steps))
-#            self.xind = (self.x - self.xlim[0])/self.steps
-#            self.yind = (self.y - self.ylim[0])/self.steps
-#            if self.xind >= len(self.xbuckets) or self.xind < 0:
-#                self.xind = 0
-#                self.x = self.xbuckets[self.xind]
-#            if self.yind >= len(self.ybuckets) or self.yind < 0:
-#                self.yind = 0
-#                self.y = self.ybuckets[self.yind]
-                
-    def xbuckets(self, index):
-      if not self.movex: return self.x
-      if index < 0: index = 0
-      if index > (self.xlim[1] - self.xlim[0]) / self.steps: index = (self.xlim[1] - self.xlim[0]) / self.steps
-      return self.xlim[0] + index * self.steps 
-    
-    def ybuckets(self, index):
-      upper = (self.ylim[1] - self.ylim[0]) / self.steps
-      if not self.movey: return self.y
-      if index < 0: index = 0
-      if index > upper: index = upper
-      return self.ylim[0] + index * self.steps 
-    
-    def __is_inside(self, (mx, my)):
-        return (self.x < mx < self.x + self.wd) and (self.y < my < self.y + self.ht)
-      
-    def get_dragged(self):
-        cur = pg.mouse.get_pos()
-        clicked = pg.mouse.get_pressed()[0]
-        if not self.drag and self.__is_inside(cur) and clicked:
-            self.drag = True
-            self.dx = self.steps*((cur[0] - self.x)//self.steps)
-            self.dy = self.steps*((cur[1] - self.y)//self.steps)
-        if self.drag and clicked:
-            oldx = self.x
-            oldy = self.y
-            self.xind = abs(cur[0] - self.dx - self.xlim[0])/self.steps
-            self.yind = abs(cur[1] - self.dy - self.ylim[0])/self.steps
-            self.x = self.xbuckets(self.xind)
-            self.y = self.ybuckets(self.yind)
-            
-            if not(self.xlim[0] <= self.x <= self.xlim[1]) or not self.movex:
-                self.x = oldx
-            if not(self.ylim[0] <= self.y <= self.ylim[1]) or not self.movey:
-                self.y = oldy
-        elif self.drag and not clicked:
-            self.drag = False
-            self.dx = 0
-            self.dy = 0
-        
-        return self.drag
-    
-    def blit(self, surface, update = False):
-        if self.drag:
-            c = self.dragcolour
-        elif self.__is_inside(pg.mouse.get_pos()):
-            c = self.active
-        else:
-            c = self.colour
-        pg.draw.rect(surface, c, (self.x, self.y, self.wd, self.ht))
-        if update: pg.display.update()
 #----------------------------------------------------------------------------
  
 class InputNumberBox(object):
@@ -574,9 +495,114 @@ class InputNumberBox(object):
 #    if self.step_size[t] == 0: return self.min_pos[t]
 #    return self.min_pos[t] + (self.increase_dir[t] * self.square_size // 2) + self.step_size[t] * self.__getIndex()
 #----------------------------------------------------------------------------
+
+
+class Dragable(object):
+    '''Object that can be dragged by the mouse.
+Mouse has to be held while shifting.
+'''
+    def __init__(self, x, y, width, height, colour = BLACK, restrict = None, xinterval = (-50, 100000),
+                 yinterval = (-50, 100000), steps = 1):
+        ''''restrict' restricts the movement of the object along a particular axis
+restrict can only be 'y', 'x' to lock the y axis and x axis respectively
+anything else does not lock any axis.
+xinterval/yinterval is a 2-tuple of integers that gives a lower and upper bound
+if they are None, then no limits shall be taken.
+steps gives the size of the jump that the object will make'''
+        self.x = x
+        self.y = y
+        self.movex = not(restrict == 'x')
+        self.movey = not(restrict == 'y')
+        self.wd = width
+        self.ht = height
+        self.drag = False
+        self.colour = colour
+        self.dx = 0
+        self.dy = 0
+        self.xlim = xinterval
+        if not self.movex:
+            self.xlim = (self.x, self.x)
+        self.ylim = yinterval 
+        if not self.movey:
+            self.ylim = (self.y, self.y)
+        self.steps = steps
+        self.active = tuple(min(25+c, 200) for c in colour)
+        self.dragcolour = tuple(min(int(1.5*c), 240) for c in colour)
+#
+#        if self.steps == 1:
+#            self.xbuckets = None
+#            self.ybuckets = None
+#            self.xind = None
+#            self.yind = None
+#        else:
+#            self.xbuckets = tuple(range(self.xlim[0], self.xlim[1]+1, self.steps))
+#            self.ybuckets = tuple(range(self.ylim[0], self.ylim[1]+1, self.steps))
+#            self.xind = (self.x - self.xlim[0])/self.steps
+#            self.yind = (self.y - self.ylim[0])/self.steps
+#            if self.xind >= len(self.xbuckets) or self.xind < 0:
+#                self.xind = 0
+#                self.x = self.xbuckets[self.xind]
+#            if self.yind >= len(self.ybuckets) or self.yind < 0:
+#                self.yind = 0
+#                self.y = self.ybuckets[self.yind]
+                
+    def xbuckets(self, index):
+      if not self.movex: return self.x
+      if index < 0: index = 0
+      if index > (self.xlim[1] - self.xlim[0]) / self.steps: index = (self.xlim[1] - self.xlim[0]) / self.steps
+      return self.xlim[0] + index * self.steps 
+    
+    def ybuckets(self, index):
+      upper = (self.ylim[1] - self.ylim[0]) / self.steps
+      if not self.movey: return self.y
+      if index < 0: index = 0
+      if index > upper: index = upper
+      return self.ylim[0] + index * self.steps 
+    
+    def __is_inside(self, (mx, my)):
+        return (self.x < mx < self.x + self.wd) and (self.y < my < self.y + self.ht)
+      
+    def get_dragged(self):
+        cur = pg.mouse.get_pos()
+        clicked = pg.mouse.get_pressed()[0]
+        if not self.drag and self.__is_inside(cur) and clicked:
+            self.drag = True
+            self.dx = self.steps*((cur[0] - self.x)//self.steps)
+            self.dy = self.steps*((cur[1] - self.y)//self.steps)
+        if self.drag and clicked:
+            oldx = self.x
+            oldy = self.y
+            #self.xind = 
+            #self.yind = 
+            self.x = self.xbuckets((cur[0] - self.dx - self.xlim[0])/self.steps)
+            self.y = self.ybuckets((cur[1] - self.dy - self.ylim[0])/self.steps)
             
+            if not(self.xlim[0] <= self.x <= self.xlim[1]) or not self.movex:
+                self.x = oldx
+            if not(self.ylim[0] <= self.y <= self.ylim[1]) or not self.movey:
+                self.y = oldy
+        elif self.drag and not clicked:
+            self.drag = False
+            self.dx = 0
+            self.dy = 0
+        
+        return self.drag
+    
+    def blit(self, surface, update = False):
+        if self.drag:
+            c = self.dragcolour
+        elif self.__is_inside(pg.mouse.get_pos()):
+            c = self.active
+        else:
+            c = self.colour
+        pg.draw.rect(surface, c, (self.x, self.y, self.wd, self.ht))
+        if update: pg.display.update()  
+
+
+
+#--------------------------------------------------------------------------------------        
 class ListBox(object):
-    def __init__(self, x, y, width, height, items, ind_ht, bkgcolour = WHITE):
+    def __init__(self, x, y, width, height, items, ind_ht, bkgcolour = WHITE, fontcolour = BLACK):
         #ind_ht is the individual height of each box in the ListBox
         #the height will auto adjust to ensure that ind_ht divides height
         self.x = x
@@ -598,17 +624,15 @@ class ListBox(object):
             items += ('',)*(self.numvisible-len(items))
         self.items = items
         self.ind_ht = ind_ht
+        self.fontcolour = fontcolour
         if items[-1] != '':
             self.hidden = len(items) - self.numvisible
         else:
             self.hidden = 0
 ##(x, y, width, height, action = RETURN_TRUE, inactivecolour = red, activecolour = orange,
 ##                 text = None, textcolour = black, size = 25)
-        self.uparrow = Button(self.x+self.wd, self.y, self.arrowsize, self.arrowsize, Button.RETURN_TRUE,
-                              GREY, LIGHTGREY, text = '/\\', size = self.arrowsize/5, border = BLACK)
-        self.downarrow = Button(self.x+self.wd, self.y+self.ht-self.arrowsize, self.arrowsize, self.arrowsize,
-                                Button.RETURN_TRUE, GREY, LIGHTGREY, text = '\\/', size = self.arrowsize/5,
-                                border = BLACK)
+        self.uparrow = Button(self.x+self.wd, self.y, self.arrowsize, self.arrowsize, Button.RETURN_TRUE, GREY, LIGHTGREY, text = '/\\', size = self.arrowsize/5, borderActiveColour = BLACK, borderInactiveColour = BLACK)
+        self.downarrow = Button(self.x+self.wd, self.y+self.ht-self.arrowsize, self.arrowsize, self.arrowsize, Button.RETURN_TRUE, GREY, LIGHTGREY, text = '\\/', size = self.arrowsize/5, borderActiveColour = BLACK, borderInactiveColour = BLACK)
         self.bkgcolour = bkgcolour
         self.scroll = self.__get_scroller()
         self.pos = 0
@@ -623,8 +647,7 @@ class ListBox(object):
             return None
         topmost = self.y + self.uparrow.ht 
         bottom = topmost + step*self.hidden
-        return Dragable(self.x+self.wd, self.y+self.uparrow.wd, self.uparrow.wd, ht, colour = GREY, restrict = 'x',
-                        yinterval = (topmost, bottom), steps = step)
+        return Dragable(self.x+self.wd, self.y+self.uparrow.wd, self.uparrow.wd, ht, colour = GREY, restrict = 'x', yinterval = (topmost, bottom), steps = step)
     
     def __iter__(self):
         for i in self.items:
@@ -663,7 +686,7 @@ class ListBox(object):
         pg.draw.rect(screen, self.bkgcolour, (self.x, self.y, self.wd, self.ht))
         for i in xrange(self.pos, self.pos + self.numvisible):
             j = i - self.pos
-            text_to_button(screen, str(self.items[i]), BLACK, self.x, self.y + j*self.ind_ht, self.wd,
+            text_to_button(screen, str(self.items[i]), self.fontcolour, self.x, self.y + j*self.ind_ht, self.wd,
                            self.ind_ht, int(self.ind_ht//(2.5)))
             if i != self.pos + self.numvisible - 1:
                 pg.draw.rect(screen, BLACK, (self.x, self.y+(j+1)*self.ind_ht-1, self.wd, 2))
@@ -673,13 +696,15 @@ class ListBox(object):
 
 class ClickListBox(ListBox, Clickable):
     RETURN_NAME = 1
-    def __init__(self, x, y, width, height, actionkeys, actionvalues, ind_ht, bkgcolour = WHITE, activecolour = RED, repeat_action = False):
+    RETURN_INDEX = 2
+    def __init__(self, x, y, width, height, actionkeys, actionvalues, ind_ht, bkgcolour = WHITE, activecolour = RED, repeat_action = False, fontcolour = BLACK):
         self.keys = actionkeys
         self.actions = actionvalues
         self.repeat = repeat_action
         super(ClickListBox, self).__init__(x, y, width, height, self.keys, ind_ht, bkgcolour)
         self.activeselectcolour = activecolour
         self.activated = None
+        self.fontcolour= fontcolour
         
     def __is_inside(self, (mx, my)):
         return (self.x < mx < self.x + self.wd) and (self.y < my < self.y + self.ht)
@@ -694,11 +719,15 @@ class ClickListBox(ListBox, Clickable):
         if self.activated != None:
             i = self.activated
             if not self.repeat:
-                self.activated = None
+              self.activated = None
             if self.actions[i] == ClickListBox.RETURN_NAME:
-                return self.keys[i]
+              return self.keys[i]
+            elif self.actions[i] == ClickListBox.RETURN_INDEX:
+              return i
             else:
-                return self.actions[i] 
+              return self.actions[i] 
+            #if i < 0 or i > len(self.actions):
+             # return None
             
             
     def blit(self, surface, update = False):
@@ -708,8 +737,7 @@ class ClickListBox(ListBox, Clickable):
             i = self.activated
             j = i - self.pos
             pg.draw.rect(surface, self.activeselectcolour, (self.x, self.y + j*self.ind_ht, self.wd, self.ind_ht), 2)
-            text_to_button(surface, self.keys[i], BLACK, self.x, self.y + j*self.ind_ht, self.wd,
-                           self.ind_ht, 1+int(self.ind_ht//2.5))
+            #text_to_button(surface, self.keys[i], self.fontcolour, self.x, self.y + j*self.ind_ht, self.wd, self.ind_ht, 1+int(self.ind_ht//2.5))
         elif self.__is_inside(cur):
             cury = cur[1]
             k = self.pos + (cury - self.y)//self.ind_ht

@@ -9,6 +9,8 @@ import sys
 import os
 folder = os.getcwd()
 sys.path.append(folder+"\\modules")
+sys.path.append(folder+"\\images")
+image_folder = os.path.join(folder, "images")
 sys.path.append(folder)
 
 import traceback, pygame as pg
@@ -24,7 +26,7 @@ display_height = 600
 screen = pg.display.set_mode((display_width, display_height))
 MAIN_CAPTION = "A Five-Species Jungle Game"
 pg.display.set_caption(MAIN_CAPTION)
-#pg.display.set_icon(<pg.surface picture>)
+pg.display.set_icon(pg.image.load(os.path.join(image_folder, "game_icon.png")))
 
 TOT_SPECIES = 5
 sim.TOT_SPECIES = TOT_SPECIES
@@ -56,7 +58,8 @@ for i in range(len(preSetRates)):
     if not preSetRates[i].has_key(t):
       preSetRates[i][t] = 0.0
 
-distribution = [3000]+[4000]*3 + [10000]
+DEFAULT_DISTRIBUTION = [30000]+[40000]*3 + [100000]
+distribution = DEFAULT_DISTRIBUTION
 totalPopulation = sum(distribution)
 
 defaultIndex = 4
@@ -98,7 +101,6 @@ def runSimulation(simType = MIXED_APPROX):
   global predRates
   totalPopulation = sum(distribution)
   
-  screen.fill(gui.WHITE)
   #initialize simulation
   simulationArea = pg.Surface((int(display_width * 0.65), display_height))
   simulationAreaRect = simulationArea.get_rect()
@@ -107,14 +109,21 @@ def runSimulation(simType = MIXED_APPROX):
   
   if simType == MIXED_RANDOM:
     simulator = sim.WellMixedRandom(simulationAreaRect.width, simulationAreaRect.height, predRates, distribution, FPS = FPS)
-    caption += "Random Simulation, Well-Mixed Population"
+    caption += "Statistical Mode"
   elif simType == MIXED_APPROX:
     simulator = sim.WellMixedNumerApprox(simulationAreaRect.width, simulationAreaRect.height, predRates, distribution, FPS = FPS)
-    caption += "Numerical Solution to PDE, Well-Mixed Population"
+    caption += "Theoretical Mode"
   elif simType == STRUCTURED:
-    caption += "Structured Population"
+    titleSize = 30
+    rect = pg.Rect((0,0), (display_width -2* titleSize, int(1.25*titleSize)))
+    rect.center = screen.get_rect().center
+    pg.draw.rect(screen, gui.PEACH, rect)
+    gui.message_to_screen(screen, "INITIALIZING BOARD... PLEASE WAIT", gui.BLACK, rect.center, titleSize)
+    pg.display.update()
+    caption += "Structured Mode"
     simulator = sim.GridGame(simulationAreaRect.width, simulationAreaRect.height, predRates, distribution, FPS = FPS)
     
+  screen.fill(gui.WHITE)
   pg.display.set_caption(caption)  
   simulator.startSimulation(simulationArea)
   
@@ -201,7 +210,7 @@ def runSimulation(simType = MIXED_APPROX):
   mainmenu_btn = gui.Button(simulationAreaRect.width + margins, margins, menu_button_width, menu_button_height, inactivecolour = gui.LIGHTBLUE, activecolour = gui.SKYBLUE, text = "MENU", size = button_font_size)
   helpmenu_btn = gui.Button(simulationAreaRect.width + 2*margins + menu_button_width, margins, menu_button_width, menu_button_height, inactivecolour = gui.LIGHTGREEN, activecolour = gui.GREEN, text = "HELP", size = button_font_size)
   pause_btn = gui.Button(simulationAreaRect.width + margins, 2*margins + menu_button_height, menu_button_width, menu_button_height, inactivecolour = gui.PINK, activecolour = gui.PEACH, text = "PAUSE", size = button_font_size)
-  quit_btn = gui.Button(simulationAreaRect.width + 2*margins + menu_button_width, 2*margins + menu_button_height, menu_button_width, menu_button_height, inactivecolour = gui.RED, activecolour = gui.ORANGE, text = "QUIT", size = button_font_size)
+  reset_btn = gui.Button(simulationAreaRect.width + 2*margins + menu_button_width, 2*margins + menu_button_height, menu_button_width, menu_button_height, inactivecolour = gui.RED, activecolour = gui.ORANGE, text = "RESET", size = button_font_size)
   pg.draw.rect(key, gui.BLACK, ((0,0), key_rect.size), margins//2)
   screen.blit(key, key_rect)
   
@@ -243,19 +252,40 @@ def runSimulation(simType = MIXED_APPROX):
             simulator.updateRates(preSetRates[n][(i,j)], i, j)
             predRateInputs[i][j].setValue(preSetRates[n][(i,j)])
       
-    if mainmenu_btn.get_click():
+    if mainmenu_btn.get_click(delay = False):
       distribution = simulator.speciesPop
       if simType == MIXED_APPROX:
         distribution = [int(k * totalPopulation) for k in distribution]
       return MENU_SCREEN
-    helpmenu_btn.get_click()
+    if helpmenu_btn.get_click(delay = False):
+      if simulator.run: simulator.toggle_pause()
+      helpScreen()
+      screen.fill(gui.WHITE)
+      screen.blit(key, key_rect)
     if pause_btn.get_click():
       simulator.toggle_pause()
-    if quit_btn.get_click():
-      distribution = simulator.speciesPop
-      if simType == MIXED_APPROX:
-        distribution = [int(k * totalPopulation) for k in distribution]
-      Quit()
+      
+    if reset_btn.get_click():
+      distribution = DEFAULT_DISTRIBUTION
+      if simType == MIXED_RANDOM:
+        simulator = sim.WellMixedRandom(simulationAreaRect.width, simulationAreaRect.height, predRates, distribution, FPS = FPS)
+        caption += "Statistical Mode"
+      elif simType == MIXED_APPROX:
+        simulator = sim.WellMixedNumerApprox(simulationAreaRect.width, simulationAreaRect.height, predRates, distribution, FPS = FPS)
+        caption += "Theoretical Mode"
+      elif simType == STRUCTURED:
+        titleSize = 30
+        rect = pg.Rect((0,0), (display_width -2* titleSize, int(1.25*titleSize)))
+        rect.center = screen.get_rect().center
+        pg.draw.rect(screen, gui.PEACH, rect)
+        gui.message_to_screen(screen, "INITIALIZING BOARD... PLEASE WAIT", gui.BLACK, rect.center, titleSize)
+        pg.display.update()
+        caption += "Structured Mode"
+        simulator = sim.GridGame(simulationAreaRect.width, simulationAreaRect.height, predRates, distribution, FPS = FPS)
+        screen.fill(gui.WHITE)
+        screen.blit(key, key_rect)
+        
+        
     for event in pg.event.get():
       if event.type == pg.QUIT:
         distribution = simulator.speciesPop
@@ -279,7 +309,7 @@ def runSimulation(simType = MIXED_APPROX):
     screen.blit(simulationArea, simulationAreaRect)
     mainmenu_btn.blit(screen)
     helpmenu_btn.blit(screen)
-    quit_btn.blit(screen)
+    reset_btn.blit(screen)
     for n in range(numpresets):
       presetBtns[n].blit(screen, freeze = simulator.run)
     if simulator.run: 
@@ -330,30 +360,27 @@ def menuScreen():
   
   #buttons 
   button_y = introRect.bottom + 2*margins
-  button_height = (display_height - button_y - 2* margins)
-  button_width = (display_width - 7 * margins) // 4
-  left_button_x = 2*margins
+  button_size = min((display_width - 7 * margins) // 4, (display_height - button_y - 2* margins))
+  #left_button_x = 2*margins
   #(self, x, y, width, height, action = RETURN_TRUE, inactivecolour = RED, activecolour = ORANGE, text = None, textcolour = BLACK, size = 25, border = None)
-  well_mixed_random = gui.Button(left_button_x, button_y, button_width, button_height, text = "MIXED RANDOM")
-  well_mixed_approx = gui.Button(left_button_x + margins + button_width, button_y, button_width, button_height, text = "NUMERIC SOLVE")
-  structured = gui.Button(left_button_x+ 2*(margins + button_width), button_y, button_width, button_height, text = "STRUCTURED")
-  help_btn = gui.Button(left_button_x + 3*(margins + button_width), button_y, button_width, button_height, text = "HELP")
+  well_mixed_random = gui.Button(display_width // 2 - button_size - margins//2 , button_y, button_size, button_size, image = pg.image.load(os.path.join(image_folder, "statistical-mode-button-image.png")).convert(), activecolour = gui.BLACK, inactivecolour = gui.BLACK, borderInactiveColour = gui.BLACK, borderActiveColour = gui.GREY)
+  well_mixed_approx = gui.Button(display_width//2 - 2 * button_size- 3*margins//2, button_y, button_size, button_size, image = pg.image.load(os.path.join(image_folder, "theoretical-mode-button-image.png")).convert(), activecolour = gui.BLACK, inactivecolour = gui.BLACK, borderInactiveColour = gui.BLACK, borderActiveColour = gui.GREY)
+  structured = gui.Button(display_width // 2 + margins//2, button_y, button_size, button_size, image = pg.image.load(os.path.join(image_folder, "structured-mode-button-image.png")).convert(), activecolour = gui.BLACK, inactivecolour = gui.BLACK, borderInactiveColour = gui.BLACK, borderActiveColour = gui.GREY)
+  help_btn = gui.Button(display_width // 2 + button_size + 3*margins//2, button_y, button_size, button_size, image = pg.image.load(os.path.join(image_folder, "help_icon.png")).convert(), activecolour = gui.BLACK, inactivecolour = gui.BLACK, borderInactiveColour = gui.BLACK, borderActiveColour = gui.GREY)
   
   clock = pg.time.Clock()
   while True:
-    if well_mixed_random.get_click():
+    if well_mixed_random.get_click(delay = False):
       return MIXED_RANDOM
-    if well_mixed_approx.get_click():
+    if well_mixed_approx.get_click(delay = False):
       return MIXED_APPROX
-    if structured.get_click():
-      rect = pg.Rect((0,0), (display_width -button_width, int(1.25*titleSize)))
-      rect.center = screen.get_rect().center
-      pg.draw.rect(screen, gui.PEACH, rect)
-      gui.message_to_screen(screen, "INITIALIZING BOARD... PLEASE WAIT", gui.BLACK, rect.center, titleSize)
-      pg.display.update()
+    if structured.get_click(delay = False):
       return STRUCTURED
-    if help_btn.get_click():
-      pass
+    if help_btn.get_click(delay = False):
+      helpScreen()
+      screen.fill(gui.BLACK)
+      gui.message_to_screen(screen, "WELCOME TO A FIVE SPECIES JUNGLE GAME", gui.CYAN, (display_width//2, title_y), titleSize, bold = True, italic = True)
+      screen.blit(introMsg, introRect)
     for event in pg.event.get():
       if event.type == pg.QUIT:
         Quit()
@@ -365,6 +392,157 @@ def menuScreen():
     well_mixed_approx.blit(screen)
     structured.blit(screen)
     help_btn.blit(screen)
+    pg.display.update()
+    clock.tick(max(FPS//4, 25))
+
+
+cur_help_section = 0
+def helpScreen():
+  global cur_help_section
+  screen.fill(gui.BLACK)
+  fontSize = 30
+  contents_width = display_width // 4
+  margins = 10
+  scroll_width = 20
+  contents_panel = pg.Rect(0,0,contents_width,display_height)
+  info_panel = pg.Rect(contents_width + 2*margins, 2*margins + 2*fontSize, display_width - contents_width - 3*margins - scroll_width , display_height - 4*margins - 2*fontSize)
+  button_height = 2*fontSize
+  
+  helptext_dy = 0
+  jump = margins
+  continuous_jump = 2*margins//3
+  invisible_scroller = int(1.5 * scroll_width)
+  to_scroll_down = False
+  to_scroll_up = False
+  sections = ("Introduction", "The Ecological Model", "The Three Simulation Modes", "Interesting Observations")
+  picture_names = ("Introduction.jpg", "The_Model.jpg", "Diff_Modes.jpg", "last_sctn.jpg")
+  
+  numSections = len(sections)
+  
+  section_info_image = [None]*numSections
+  
+  rect = pg.Rect((0,0), (display_width -2* fontSize, int(1.25*fontSize)))
+  rect.center = screen.get_rect().center
+  pg.draw.rect(screen, gui.PEACH, rect)
+  gui.message_to_screen(screen, "LOADING... PLEASE WAIT", gui.BLACK, rect.center, fontSize)
+  pg.display.update()
+  
+  for i in range(numSections):
+    if picture_names[i] != None:
+      img = pg.image.load(os.path.join(image_folder, picture_names[i]))
+      scaleWidth = info_panel.width
+      scaleHeight = img.get_height() * scaleWidth / img.get_width()
+      section_info_image[i] = pg.transform.smoothscale(img,(scaleWidth, scaleHeight))
+      for event in pg.event.get():
+        if event.type == pg.QUIT:
+          Quit()
+        elif event.type == pg.KEYDOWN:
+          if event.key == pg.K_ESCAPE:
+            Quit()
+      
+  
+  #(self, x, y, width, height, actionkeys, actionvalues, ind_ht, bkgcolour = WHITE, activecolour = RED, repeat_action = False):
+  contents_ind_ht = 2*margins+fontSize
+  contents_list = gui.ClickListBox(margins, margins*2 + 2*fontSize, contents_width - 2*margins, numSections * contents_ind_ht, actionkeys = sections, actionvalues = [gui.ClickListBox.RETURN_INDEX]*numSections, ind_ht = contents_ind_ht)
+  #(self, x, y, width, height, action = RETURN_TRUE, inactivecolour = RED, activecolour = ORANGE, text = None, textcolour = BLACK, size = 25, borderActiveColour = None, borderInactiveColour = None, image = None):
+  
+  button_width = (contents_width - margins)//2
+  back_button = gui.Button(margins, display_height - button_height - margins, button_width, button_height, inactivecolour = gui.GREEN, activecolour = gui.LIGHTGREEN, text = "BACK", size = fontSize)
+  quit_button = gui.Button(back_button.x + button_width + margins, display_height - button_height - margins, button_width, button_height, text = "QUIT", size = fontSize)
+  
+  
+  #scroller_mechanics
+  scroll_up_btn = gui.Button(info_panel.right, info_panel.top, scroll_width, scroll_width, activecolour = gui.GREY, inactivecolour = gui.LIGHTGREY, text = '/\\', size = scroll_width/5, borderActiveColour = gui.BLACK, borderInactiveColour = gui.BLACK)
+  scroll_down_btn = gui.Button(info_panel.right, info_panel.bottom - scroll_width, scroll_width, scroll_width, activecolour = gui.GREY, inactivecolour = gui.LIGHTGREY, text = '\\/', size = scroll_width/5, borderActiveColour = gui.BLACK, borderInactiveColour = gui.BLACK)
+  #(self, x, y, width, height, colour = BLACK, restrict = None, xinterval = (-50, 100000), yinterval = (-50, 100000), steps = 1):
+  
+  
+  changeScroller = True
+  clock = pg.time.Clock()
+  while True:
+    min_dy = 0 
+    
+    if back_button.get_click(delay = False): return
+    if quit_button.get_click(delay = False): Quit()
+    temp = contents_list.get_click()
+    if isinstance(temp, int):
+      cur_help_section = temp
+      helptext_dy=0
+      changeScroller = True
+      
+    if changeScroller:
+      changeScroller = False
+      if section_info_image[cur_help_section] != None:
+        scroll_ht = (info_panel.height - 2*scroll_width) * info_panel.height / section_info_image[cur_help_section].get_height()
+        if section_info_image[cur_help_section].get_height() >info_panel.height:
+          scroller =  gui.Dragable(info_panel.right, info_panel.top + scroll_width, scroll_width, scroll_ht, colour = gui.GREY, restrict = 'x', yinterval = (info_panel.top + scroll_width, info_panel.bottom - scroll_width - scroll_ht), steps = 1)
+        else:
+          scroller = None
+      else:
+        scroller = None
+        
+    to_jump_down = False
+    to_jump_up = False
+    for event in pg.event.get():
+      if event.type == pg.QUIT:
+        Quit()
+      elif event.type == pg.KEYDOWN:
+        if event.key == pg.K_ESCAPE:
+          Quit()
+        elif event.key == pg.K_DOWN:
+          to_jump_down = True
+          to_scroll_down = True
+        elif event.key== pg.K_UP:
+          to_jump_up = True
+          to_scroll_up = True
+      elif event.type == pg.KEYUP:
+        if event.key == pg.K_DOWN:
+          to_scroll_down = False
+        if event.key == pg.K_UP:
+          to_scroll_up = False
+          
+    if to_jump_down:
+      helptext_dy -= jump
+    if to_jump_up:
+      helptext_dy += jump
+    mouse_pos = pg.mouse.get_pos()
+    if to_scroll_down or scroll_down_btn.get_click(delay = False) or (info_panel.collidepoint(mouse_pos) and (0 < info_panel.bottom - mouse_pos[1] < invisible_scroller) ):
+      helptext_dy -= continuous_jump
+    if to_scroll_up or scroll_up_btn.get_click(delay = False) or (info_panel.collidepoint(mouse_pos) and (0 < mouse_pos[1] - info_panel.top < invisible_scroller)):
+      helptext_dy += continuous_jump
+    
+    screen.fill(gui.BLACK)
+    
+    if section_info_image[cur_help_section] != None:
+      min_dy = info_panel.height - section_info_image[cur_help_section].get_height()
+      if helptext_dy < min_dy: helptext_dy = min_dy
+      if helptext_dy > 0: helptext_dy = 0
+      
+      if min_dy < 0 and scroller != None:
+        if scroller.get_dragged():
+          helptext_dy = ((scroller.y - scroller.ylim[0]) *  (min_dy)) // (scroller.ylim[1] - scroller.ylim[0])
+        else:
+          scroller.y = scroller.ylim[0] + ((helptext_dy) * (scroller.ylim[1] - scroller.ylim[0])) // (min_dy)
+          
+      if helptext_dy < min_dy: helptext_dy = min_dy
+      if helptext_dy > 0: helptext_dy = 0
+        
+      screen.blit(section_info_image[cur_help_section], (info_panel.left, info_panel.top + helptext_dy))
+      
+    
+    pg.draw.rect(screen, gui.BLACK, (info_panel.bottomleft, (info_panel.width, display_height - info_panel.bottom)))
+    pg.draw.rect(screen, gui.BLACK, ((info_panel.left, 0), (info_panel.width, info_panel.top)))
+    gui.message_to_screen(screen, sections[cur_help_section].upper(), gui.WHITE, (info_panel.centerx, margins + fontSize), fontSize, True)
+    contents_list.blit(screen)
+    if min_dy < 0:
+      scroll_up_btn.blit(screen)
+      scroll_down_btn.blit(screen)
+    back_button.blit(screen)
+    quit_button.blit(screen)
+    gui.message_to_screen(screen, "CONTENTS", gui.WHITE, (contents_panel.centerx, margins + fontSize), fontSize, True, True)
+    
+    if scroller != None:
+      scroller.blit(screen)
     pg.display.update()
     clock.tick(max(FPS//4, 25))
 

@@ -68,11 +68,11 @@ class Simulation(object):
     if hedge: s = 'are supposed to '
     else: s = ''
     if self.A >0 and self.B > 0:
-      return "%s & %s go %sextinct in the long run"%(SPECIES_NAME[2], SPECIES_NAME[3], s)
+      return "%s & %s %sgo extinct in the long run"%(SPECIES_NAME[2], SPECIES_NAME[3], s)
     elif self.A < 0 and self.C > 0:
-      return "%s & %s go %sextinct in the long run"%(SPECIES_NAME[1], SPECIES_NAME[3], s)
+      return "%s & %s %sgo extinct in the long run"%(SPECIES_NAME[1], SPECIES_NAME[3], s)
     elif self.B < 0 and self.C < 0:
-      return "%s & %s go %sextinct in the long run"%(SPECIES_NAME[1], SPECIES_NAME[2], s)
+      return "%s & %s %sgo extinct in the long run"%(SPECIES_NAME[1], SPECIES_NAME[2], s)
     elif self.A*self.B < 0 and self.A*self.C > 0:
       return "All 5 may stably coexist"
     else:
@@ -132,7 +132,7 @@ class WellMixedRandom(Simulation):
     self.speciesPop = list(speciesPopulation)
     self.totPop = sum(self.speciesPop)
     self.total = sum(sum(l) for l in predRates)
-    self.maxKillCount = maxKillCount
+    self.maxKillCount = max(10, self.totPop//100)
     self.graph = pg.Surface((self.width-5, 3*self.height / 4))
     self.graph.fill(gui.WHITE)
     self.graph_x_pos = 0
@@ -238,6 +238,7 @@ class WellMixedRandom(Simulation):
       gui.message_to_screen(screen, "(A = %.2f, B = %.2f, C = %.2f)"%(self.A, self.B, self.C), gui.WHITE, ((self.width+self.predictionButton.wd)//2, self.height - self.predictionButton.ht//2 + self.fontSize//2 - int(self.margins*0.8)), self.fontSize)
   
   def simulate(self, window):
+    self.maxKillCount = max(10, self.totPop//250)
     if self.run:
       for _ in range(self.numStepsPerUpdate):
         self.MonteCarloStep()
@@ -254,7 +255,6 @@ class WellMixedNumerApprox(Simulation):
     self.speciesPop = [k / float(totPop) for k in speciesPopulation]
     self.total = sum(sum(l) for l in predRates)
     self.killTimeStep = killTimeStep
-    self.maxKillCount = min(maxKillCount, max(10, totPop//1000))
     self.graph = pg.Surface((self.width-5, 3*self.height / 4))
     self.graph.fill(gui.WHITE)
     self.graph_x_pos = 0
@@ -406,8 +406,8 @@ class GridGame(Simulation):
       self.maxNumCols = min(self.maxBoardWidth, GridGame.MAX_NUM_COLS)
       self.minNumRows = 40
       self.minNumCols = 70
-      if numRows == None: numRows = (self.maxNumRows + self.minNumRows)//2#min(self.maxBoardHeight, GridGame.MAX_NUM_ROWS)
-      if numCols == None: numCols = (self.maxNumCols + self.minNumCols)//2#min(self.maxBoardWidth, GridGame.MAX_NUM_COLS)
+      if numRows == None: numRows = self.maxNumRows# + self.minNumRows)//2#min(self.maxBoardHeight, GridGame.MAX_NUM_ROWS)
+      if numCols == None: numCols = self.maxNumCols# + self.minNumCols)//2#min(self.maxBoardWidth, GridGame.MAX_NUM_COLS)
       self.numRows = numRows
       self.numCols = numCols
       self.pixelSize = max(self.maxBoardWidth//numCols, self.maxBoardHeight//numRows)
